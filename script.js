@@ -1,34 +1,55 @@
-const versus = document.querySelector(".versus");
-const startButton = document.querySelector(".start");
-startButton.addEventListener("click", startGame);
-const gameArea = document.querySelector(".game-area");
-
-function startGame() {
-	startButton.remove();
-	versus.remove();
-	gameArea.classList.remove("grid-area");
-	gameArea.classList.add("game-area-started");
-	const battleGround = document.createElement("div");
-	battleGround.classList.add("battle-ground");
-	gameArea.append(battleGround);
-	const gameState = document.createElement("p");
-	gameState.classList.add("game-state");
-	gameState.textContent = `P.1 YOU GO FIRST (X)`;
-	battleGround.appendChild(gameState);
-	const gameBoard = document.createElement("div");
-	gameBoard.classList.add("game-board");
-	battleGround.appendChild(gameBoard);
-	const player1 = Player("P.1", "X");
-	const player2 = Player("P.2", "O");
-	Game.start(gameBoard, player1, player2, gameState, battleGround);
-}
-
-const Player = (name, marker) => {
-	return { name, marker };
+const Player = (playerName, playerMarker) => {
+	return { playerName, playerMarker };
 };
+const player1 = Player("Player 1", "X");
+const player2 = Player("Player 2", "O");
+
+const gameInitializer = (() => {
+	const displayText = document.querySelector(".display-text");
+	const playerTwoButtons = Array.from(document.querySelectorAll(".player-2 button"));
+	const playerTwoImage = document.querySelector(".player-2 img");
+	const playerTwoText = document.createElement("p");
+	playerTwoText.classList.add("player2-text");
+	const playerTwoNode = document.querySelector(".player-2");
+	const startButton = document.querySelector(".start");
+	playerTwoButtons.forEach((button) => {
+		button.addEventListener("click", function (event) {
+			const targetText = event.target.textContent;
+			displayText.textContent = `Human vs ${targetText}`;
+			startButton.classList.remove("display-none");
+			if (event.target.textContent === "Human") {
+				playerTwoImage.setAttribute("src", "./svg/p2.svg");
+				playerTwoText.textContent = "Player 2";
+				playerTwoButtons[0].style.cssText = "background-color: darkblue; color: yellow; scale:1.2;";
+				playerTwoButtons[1].style.cssText = "background-color: black; color: green; scale:1.0;";
+			} else {
+				playerTwoImage.setAttribute("src", "./svg/computer.svg");
+				playerTwoText.textContent = "Computer";
+				playerTwoButtons[1].style.cssText = "background-color: darkblue; color: yellow; scale:1.2;";
+				playerTwoButtons[0].style.cssText = "background-color: black; color: green; scale:1.0;";
+			}
+		});
+	});
+
+	startButton.addEventListener("click", function () {
+		if (displayText.textContent === "Human vs ?") {
+			return;
+		} else {
+			displayText.textContent = "Player 1, You Go First";
+			playerTwoButtons.forEach((button) => button.remove());
+			playerTwoNode.appendChild(playerTwoText);
+			startButton.remove();
+			Game.start();
+		}
+	});
+	return {};
+})();
 
 const Game = (() => {
-	let currentPlayer;
+	let currentPlayer = player1;
+	const gameDisplayText = document.querySelector(".display-text");
+	const player1Array = [];
+	const player2Array = [];
 	const winningCombinations = [
 		[0, 1, 2],
 		[3, 4, 5],
@@ -39,70 +60,36 @@ const Game = (() => {
 		[0, 4, 8],
 		[2, 4, 6],
 	];
-
-	const start = (gameBoard, player1, player2, gameState, battleGround) => {
-		for (let i = 0; i < 9; i++) {
-			const gameBoardUnit = document.createElement("div");
-			gameBoardUnit.classList.add("game-board-unit");
-			gameBoard.appendChild(gameBoardUnit);
-		}
-		currentPlayer = player1;
-		const gameBoardArray = Array.from(document.querySelectorAll(".game-board-unit"));
-		let player1Array = [];
-		let player2Array = [];
-		gameBoardArray.forEach((boardUnit) => {
-			boardUnit.addEventListener("click", clickHandler);
+	const gameBoard = Array.from(document.querySelectorAll(".game-board .unit"));
+	const start = () => {
+		gameBoard.forEach((unit) => {
+			unit.addEventListener("click", unitProgress);
 		});
-		function clickHandler(event) {
-			event.target.removeEventListener("click", clickHandler);
-			const markerImage = document.createElement("img");
-			let playerMarkSvg = playerMark(currentPlayer.marker);
-			markerImage.setAttribute("src", playerMarkSvg);
-			event.target.appendChild(markerImage);
-			currentPlayer = currentPlayer.marker === "X" ? player2 : player1;
-			const nthChild = gameBoardArray.indexOf(event.target);
-			const playerArrays = gameCondition(player1Array, player2Array, playerMarkSvg, nthChild);
-			const doesGameEnd = gameEnd(playerArrays[0], playerArrays[1], currentPlayer);
-			if (doesGameEnd) {
-				gameState.textContent = doesGameEnd;
-				const resetButton = document.createElement("button");
-				resetButton.textContent = "Reset";
-				resetButton.classList.add("reset-button");
-				battleGround.appendChild(resetButton);
-				resetButton.addEventListener("click", function () {
-					startGame();
-					location.reload();
-				});
-
-				if (doesGameEnd === "P.1 Won") {
-					gameState.classList.add("p1-win");
-				} else if (doesGameEnd === "Draw") {
-					gameState.classList.add("draw");
-				}
-				gameBoardArray.forEach((unit) => {
-					unit.removeEventListener("click", clickHandler);
-				});
-			} else {
-				gameState.textContent = `${currentPlayer.name}'s Turn`;
-			}
-		}
 	};
 
-	const playerMark = (marker) => {
-		if (marker === "X") {
-			return "./svg/plus.svg";
-		} else {
-			return "./svg/circle.svg";
-		}
-	};
-	const gameCondition = (player1Array, player2Array, playerMarkSvg, nthChild) => {
-		if (playerMarkSvg === "./svg/plus.svg") {
+	function unitProgress(event) {
+		event.target.removeEventListener("click", unitProgress);
+		const playerMarkerImage = document.createElement("img");
+		const nthChild = gameBoard.indexOf(event.target);
+		let isGameOver;
+		if (currentPlayer.playerMarker === "X") {
+			playerMarkerImage.setAttribute("src", "./svg/plus.svg");
+			currentPlayer = player2;
+			gameDisplayText.textContent = "Player 2's Turn (O)";
 			player1Array.push(nthChild);
-		} else if (playerMarkSvg === "./svg/circle.svg") {
+		} else {
+			playerMarkerImage.setAttribute("src", "./svg/circle.svg");
+			currentPlayer = player1;
+			gameDisplayText.textContent = "Player 1's Turn (X)";
 			player2Array.push(nthChild);
 		}
-		return [player1Array, player2Array];
-	};
+		event.target.appendChild(playerMarkerImage);
+		isGameOver = gameEnd(player1Array, player2Array);
+		if (isGameOver) {
+			gameDisplayText.textContent = isGameOver;
+			clearGameBoard();
+		}
+	}
 
 	const gameEnd = (p1Array, p2Array) => {
 		let totalLength;
@@ -138,9 +125,19 @@ const Game = (() => {
 		return counter;
 	}
 
-	return {
-		winningCombinations,
-		start,
-		currentPlayer,
+	const clearGameBoard = () => {
+		gameBoard.forEach((unit) => {
+			unit.removeEventListener("click", unitProgress);
+		});
+		const resetButton = document.createElement("button");
+		const gameArea = document.querySelector(".game-area");
+		resetButton.classList.add("start");
+		resetButton.textContent = "Reset";
+		resetButton.addEventListener("click", function (event) {
+			location.reload();
+		});
+		gameArea.appendChild(resetButton);
 	};
+
+	return { start };
 })();
